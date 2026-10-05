@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/* Light, high-contrast kitchen UI modeled on the reference app. */
+@theme {
+  --font-sans: var(--font-roboto), system-ui, sans-serif;
+
+  --color-page: #f3f4f6;
+  --color-card: #ffffff;
+  --color-ink: #1f2a44;
+  --color-muted: #6b7280;
+  --color-line: #e5e7eb;
+  --color-field: #f9fafb;
+
+  --color-brand: #2196f3;
+  --color-brand-dark: #1565c0;
+  --color-brand-soft: #e3f0fd;
+
+  --color-waste: #d84315;
+  --color-waste-soft: #fbe9e7;
+  --color-donation: #00897b;
+  --color-donation-soft: #e0f2f1;
+
+  --color-good: #2e7d32;
+  --color-bad: #d32f2f;
+}
+
+html,
+body {
+  background: var(--color-page);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Inputs at 16px+ so iOS Safari doesn't zoom on focus. */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-sheet-up {
+  animation: sheet-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.animate-fade-in {
+  animation: fade-in 160ms ease-out;
+}

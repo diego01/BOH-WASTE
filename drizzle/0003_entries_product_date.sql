@@ -1,0 +1,1 @@
+CREATE INDEX "waste_entries_product_date_idx" ON "waste_entries" USING btree ("product_id","business_date");
