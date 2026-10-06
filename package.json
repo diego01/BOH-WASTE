@@ -14,7 +14,9 @@
     "db:reset": "tsx scripts/db.ts reset",
     "setup": "tsx scripts/db.ts seed --demo",
     "supabase:setup": "tsx scripts/db.ts seed --import --supabase",
-    "supabase:migrate": "tsx scripts/db.ts migrate --supabase"
+    "supabase:migrate": "tsx scripts/db.ts migrate --supabase",
+    "test-env:setup": "tsx scripts/db.ts reset --test && tsx scripts/db.ts seed --demo --test",
+    "test-env": "tsx scripts/testEnv.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

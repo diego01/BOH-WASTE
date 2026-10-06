@@ -23,6 +23,17 @@ Demo users and their test PINs are listed in `.env.example` (local only).
 > - The project lives in OneDrive. Point `PGLITE_DIR` outside OneDrive (e.g. `C:/Users/<you>/AppData/Local/boh-waste/pglite`) so sync never touches database files.
 > - If you see "PGlite failed to initialize", run `npm run db:reset` then `npm run setup`.
 
+### Local test environment (demo data, separate database)
+
+Try changes here before pushing to GitHub (which redeploys Vercel):
+
+```bash
+npm run test-env:setup   # (re)creates the TEST database: demo users, catalog, allowances, ~300 entries
+npm run test-env         # http://localhost:3001
+```
+
+It never touches the real local database or Supabase. Demo PINs are in `.env.example`.
+
 ### Real start (no demo data)
 
 ```bash
@@ -188,7 +199,7 @@ Rules: there is always at least one active Admin (the last one can't be deactiva
 
 - Period: a day or a range, with shortcuts (today, yesterday, last 7 days, this week, this month). Default: this month to date. Filters: type (All / Waste / Donation), daypart, area (when there are several).
 - Real by product (qty + $, optional split by daypart), category, area, reason, daypart; Waste and Donation totals side by side; daily chart.
-- **Real vs allowance**: one row per allowance (product or group). Real = all its entries in the period (waste and donation, all dayparts — the allowance isn't split by them), allowance prorated to the period, **Difference = allowance − real**: green with "+" when ≥ 0, red with "−" when negative. Totals overall and by area / category. Sorted most-over first. Tap a row for day by day with daily and cumulative difference.
+- **Real vs allowance**, two views. *Product*: one row per product with its own allowance (groups are left out so items aren't mixed); totals show **Total over** (sum of overages only) and **Total available** (sum of what's left only) so one product's savings never hide another's overage, plus a filter All / Over / Within and a *Without allowance* list (real only). *Area*: everything logged per area with its over/available and real without allowance. Previously: one row per allowance (product or group). Real = all its entries in the period (waste and donation, all dayparts — the allowance isn't split by them), allowance prorated to the period, **Difference = allowance − real**: green with "+" when ≥ 0, red with "−" when negative. Totals overall and by area / category. Sorted most-over first. Tap a row for day by day with daily and cumulative difference.
 - **Month to date** (this month): used vs month allowance, remaining, pace vs allowance prorated to today, projected month end = real ÷ operating days elapsed × operating days in month, with an alert when it projects over; per-row projection warnings.
 - Remove corrections net out everywhere and count against the reason of the entry they correct.
 - Export: Excel (Summary, Real vs Allowance, Day by day, Products, Entries — signed, colored Difference) and CSV (comparison or entries). CSV text is protected against formula injection.

@@ -42,8 +42,6 @@ export function ReportsClient({ report, params, areas }: { report: Report; param
   const { t, L, lang } = useT();
   const [pending, start] = useTransition();
   const [dateSheet, setDateSheet] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
-  const [rollup, setRollup] = useState<"none" | "area" | "category">("none");
   const [splitDayparts, setSplitDayparts] = useState(false);
 
   const query = (over: Partial<Record<string, string>>) => {
@@ -119,125 +117,7 @@ export function ReportsClient({ report, params, areas }: { report: Report; param
         {report.mtd && <MtdCard mtd={report.mtd} />}
 
         {/* Real vs allowance */}
-        <Card title={t("Real vs allowance", "Real vs. allowance")}>
-          {filtered && (
-            <p className="mb-2 text-xs text-muted">
-              {t(
-                "Compared on all types and dayparts (allowance isn't split by them).",
-                "Se compara con todos los tipos y horarios (el allowance no se divide por ellos).",
-              )}
-            </p>
-          )}
-          {report.comparison.length === 0 ? (
-            <p className="text-sm text-muted">
-              {t("No allowances in this period. Set them in Settings → Allowance.", "No hay allowances en este periodo. Defínelos en Ajustes → Allowance.")}
-            </p>
-          ) : (
-            <>
-              <div className="mb-2 flex gap-1 rounded-lg bg-gray-100 p-1 text-sm">
-                {(
-                  [
-                    ["none", t("Products & groups", "Productos y grupos")],
-                    ["area", t("By area", "Por área")],
-                    ["category", t("By category", "Por categoría")],
-                  ] as const
-                ).map(([k, l]) => (
-                  <button
-                    key={k}
-                    onClick={() => setRollup(k)}
-                    className={cx("h-9 flex-1 rounded-md font-medium", rollup === k ? "bg-white shadow-sm" : "text-muted")}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
-              <div className="-mx-4 overflow-x-auto px-4">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs text-muted">
-                      <th className="py-1.5 pr-2 font-medium">
-                        {rollup === "none" ? t("Product / Group", "Producto / Grupo") : rollup === "area" ? t("Area", "Área") : t("Category", "Categoría")}
-                      </th>
-                      <th className="py-1.5 pr-2 text-right font-medium">Real</th>
-                      <th className="py-1.5 pr-2 text-right font-medium">Allow.</th>
-                      <th className="py-1.5 text-right font-medium">{t("Diff. · used", "Dif. · usado")}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {rollup === "none"
-                      ? report.comparison.map((c) => (
-                          <Fragment key={c.key}>
-                            <tr
-                              onClick={() => setOpen(open === c.key ? null : c.key)}
-                              className="cursor-pointer align-top active:bg-gray-50"
-                            >
-                              <td className="py-2.5 pr-2">
-                                <span className="flex items-start gap-1">
-                                  <IconChevronDown
-                                    width={16}
-                                    height={16}
-                                    className={cx("mt-0.5 shrink-0 text-muted transition", open === c.key && "rotate-180")}
-                                  />
-                                  <span>
-                                    <span className="font-medium leading-tight">{c.name}</span>
-                                    {c.kind === "GROUP" && <span className="block text-xs text-muted">{c.productNames.join(", ")}</span>}
-                                    {c.projection && c.projection.diff < 0 && (
-                                      <span className="mt-0.5 block text-xs font-medium text-bad">
-                                        ⚠ {t("Projected over by", "Proyectado a pasarse por")} {fmtMoney(-c.projection.diff)}
-                                      </span>
-                                    )}
-                                  </span>
-                                </span>
-                              </td>
-                              <td className="py-2.5 pr-2 text-right tabular-nums">{fmtMoney(c.real)}</td>
-                              <td className="py-2.5 pr-2 text-right tabular-nums">{fmtMoney(c.allowance)}</td>
-                              <td className="py-2.5 text-right">
-                                <Diff value={c.diff} />
-                                <span className="block text-xs text-muted">{pctFmt(c.pctUsed)}</span>
-                              </td>
-                            </tr>
-                            {open === c.key && (
-                              <tr>
-                                <td colSpan={4} className="bg-gray-50 px-2 pb-3 pt-1">
-                                  <DayTable days={c.days} />
-                                </td>
-                              </tr>
-                            )}
-                          </Fragment>
-                        ))
-                      : (rollup === "area" ? report.comparisonByArea : report.comparisonByCategory).map((r) => (
-                          <tr key={r.name}>
-                            <td className="py-2.5 pr-2 font-medium">{r.name === "Mixed" ? t("Mixed", "Mixto") : r.name}</td>
-                            <td className="py-2.5 pr-2 text-right tabular-nums">{fmtMoney(r.real)}</td>
-                            <td className="py-2.5 pr-2 text-right tabular-nums">{fmtMoney(r.allowance)}</td>
-                            <td className="py-2.5 text-right">
-                              <Diff value={r.diff} />
-                              <span className="block text-xs text-muted">{pctFmt(r.pctUsed)}</span>
-                            </td>
-                          </tr>
-                        ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-ink/20 font-bold">
-                      <td className="py-2.5 pr-2">Total</td>
-                      <td className="py-2.5 pr-2 text-right tabular-nums">{fmtMoney(report.comparisonTotals.real)}</td>
-                      <td className="py-2.5 pr-2 text-right tabular-nums">{fmtMoney(report.comparisonTotals.allowance)}</td>
-                      <td className="py-2.5 text-right">
-                        <Diff value={report.comparisonTotals.diff} />
-                        <span className="block text-xs font-normal text-muted">{pctFmt(report.comparisonTotals.pctUsed)}</span>
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <p className="mt-2 text-xs text-muted">
-                {t("Difference = allowance − real.", "Diferencia = allowance − real.")}{" "}
-                <span className="font-semibold text-good">{t("+ green", "+ verde")}</span>: {t("within allowance.", "dentro del allowance.")}{" "}
-                <span className="font-semibold text-bad">{t("− red", "− rojo")}</span>: {t("over. Tap a row for day by day.", "te pasaste. Toca una fila para ver día por día.")}
-              </p>
-            </>
-          )}
-        </Card>
+        <ComparisonCard report={report} filtered={filtered} />
 
         {report.days > 1 && (
           <Card title={t("Daily real", "Real por día")}>
@@ -350,6 +230,225 @@ export function ReportsClient({ report, params, areas }: { report: Report; param
         <DateSheet params={params} onClose={() => setDateSheet(false)} onApply={(from, to) => (setDateSheet(false), go({ from, to }))} />
       )}
     </main>
+  );
+}
+
+/**
+ * Real vs allowance. "Product": one row per product with its own allowance.
+ * "Area": everything logged per area. Totals keep excess and available apart,
+ * so one product's savings never hide another's overage.
+ */
+function ComparisonCard({ report, filtered }: { report: Report; filtered: boolean }) {
+  const { t, lang } = useT();
+  const [view, setView] = useState<"product" | "area">("product");
+  const [show, setShow] = useState<"all" | "over" | "within">("all");
+  const [open, setOpen] = useState<string | null>(null);
+  const rows = report.productComparison.filter((c) => (show === "all" ? true : show === "over" ? c.diff < -0.005 : c.diff >= -0.005));
+  const tot = report.productTotals;
+  const hasAllowances = report.productComparison.length > 0 || report.areaComparison.some((a) => a.count > 0);
+
+  return (
+    <Card title={t("Real vs allowance", "Real vs. allowance")}>
+      {filtered && (
+        <p className="mb-2 text-xs text-muted">
+          {t(
+            "Compared on all types and dayparts (allowance isn't split by them).",
+            "Se compara con todos los tipos y horarios (el allowance no se divide por ellos).",
+          )}
+        </p>
+      )}
+      <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 text-sm">
+        {(
+          [
+            ["product", t("Product", "Producto")],
+            ["area", t("Area", "Área")],
+          ] as const
+        ).map(([k, l]) => (
+          <button key={k} onClick={() => setView(k)} className={cx("h-9 rounded-md font-medium", view === k ? "bg-white shadow-sm" : "text-muted")}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {view === "product" ? (
+        <>
+          {report.productComparison.length === 0 ? (
+            <p className="text-sm text-muted">
+              {t("No product allowances in this period. Set them in Settings → Allowance.", "No hay allowances por producto en este periodo. Defínelos en Ajustes → Allowance.")}
+            </p>
+          ) : (
+            <>
+              {/* Excess and available never net against each other. */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-red-50 p-3">
+                  <div className="text-xs font-medium text-bad">{t("Total over", "Total excedido")}</div>
+                  <div className="text-lg font-bold">
+                    <Diff value={tot.excess} />
+                  </div>
+                  <div className="text-xs text-muted">
+                    {t(`${tot.overCount} of ${tot.count} products`, `${tot.overCount} de ${tot.count} productos`)}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-green-50 p-3">
+                  <div className="text-xs font-medium text-good">{t("Total available", "Total disponible")}</div>
+                  <div className="text-lg font-bold">
+                    <Diff value={tot.available} />
+                  </div>
+                  <div className="text-xs text-muted">
+                    {t(`${tot.count - tot.overCount} within allowance`, `${tot.count - tot.overCount} dentro del allowance`)}
+                  </div>
+                </div>
+              </div>
+              <p className="mt-1.5 text-xs text-muted">
+                {t("Real", "Real")} {fmtMoney(tot.real)} · Allowance {fmtMoney(tot.allowance)} · {t("Net", "Neto")}{" "}
+                <span className="tabular-nums">{fmtMoney(tot.net)}</span> ({t("for reference only", "solo como referencia")})
+              </p>
+
+              <div className="mt-3 flex gap-1 text-sm">
+                {(
+                  [
+                    ["all", t("All", "Todos")],
+                    ["over", t("Over", "Excedidos")],
+                    ["within", t("Within", "Dentro")],
+                  ] as const
+                ).map(([k, l]) => (
+                  <button
+                    key={k}
+                    onClick={() => setShow(k)}
+                    aria-pressed={show === k}
+                    className={cx("h-9 rounded-full px-3 font-medium", show === k ? "bg-ink text-white" : "bg-gray-100 text-ink")}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+
+              <div className="-mx-4 mt-2 overflow-x-auto px-4">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-muted">
+                      <th className="py-1.5 pr-2 font-medium">{t("Product", "Producto")}</th>
+                      <th className="py-1.5 pr-2 text-right font-medium">Real</th>
+                      <th className="py-1.5 pr-2 text-right font-medium">Allow.</th>
+                      <th className="py-1.5 text-right font-medium">{t("Diff. · used", "Dif. · usado")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {rows.map((c) => (
+                      <Fragment key={c.key}>
+                        <tr onClick={() => setOpen(open === c.key ? null : c.key)} className="cursor-pointer align-top active:bg-gray-50">
+                          <td className="py-2.5 pr-2">
+                            <span className="flex items-start gap-1">
+                              <IconChevronDown
+                                width={16}
+                                height={16}
+                                className={cx("mt-0.5 shrink-0 text-muted transition", open === c.key && "rotate-180")}
+                              />
+                              <span>
+                                <span className="font-medium leading-tight">{c.name}</span>
+                                {c.projection && c.projection.diff < 0 && (
+                                  <span className="mt-0.5 block text-xs font-medium text-bad">
+                                    ⚠ {t("Projected over by", "Proyectado a pasarse por")} {fmtMoney(-c.projection.diff)}
+                                  </span>
+                                )}
+                              </span>
+                            </span>
+                          </td>
+                          <td className="py-2.5 pr-2 text-right tabular-nums">{fmtMoney(c.real)}</td>
+                          <td className="py-2.5 pr-2 text-right tabular-nums">{fmtMoney(c.allowance)}</td>
+                          <td className="py-2.5 text-right">
+                            <Diff value={c.diff} />
+                            <span className="block text-xs text-muted">{pctFmt(c.pctUsed)}</span>
+                          </td>
+                        </tr>
+                        {open === c.key && (
+                          <tr>
+                            <td colSpan={4} className="bg-gray-50 px-2 pb-3 pt-1">
+                              <DayTable days={c.days} />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))}
+                    {!rows.length && (
+                      <tr>
+                        <td colSpan={4} className="py-3 text-muted">
+                          {show === "over" ? t("No product is over. 🎉", "Ningún producto está excedido. 🎉") : t("Nothing to show.", "Nada que mostrar.")}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-xs text-muted">
+                {t("Difference = allowance − real.", "Diferencia = allowance − real.")}{" "}
+                <span className="font-semibold text-good">{t("+ green", "+ verde")}</span>: {t("within allowance.", "dentro del allowance.")}{" "}
+                <span className="font-semibold text-bad">{t("− red", "− rojo")}</span>: {t("over. Tap a row for day by day.", "te pasaste. Toca una fila para ver día por día.")}
+              </p>
+            </>
+          )}
+
+          {report.withoutAllowance.length > 0 && (
+            <div className="mt-4 border-t border-line pt-3">
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-[15px] font-bold">{t("Without allowance", "Sin allowance")}</h3>
+                <span className="text-sm font-semibold tabular-nums">{fmtMoney(report.withoutAllowanceTotal)}</span>
+              </div>
+              <p className="text-xs text-muted">{t("Real only; nothing to compare against.", "Solo real; no hay contra qué comparar.")}</p>
+              <ul className="mt-2 divide-y divide-line text-sm">
+                {report.withoutAllowance.map((p) => (
+                  <li key={p.productId} className="flex justify-between gap-2 py-1.5">
+                    <span>{p.name}</span>
+                    <span className="shrink-0 tabular-nums">
+                      <span className="mr-2 text-xs text-muted">{fmtQty(Math.round(p.qty * 100) / 100, p.unit, lang)}</span>
+                      {fmtMoney(p.cost)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      ) : !hasAllowances && report.areaComparison.length === 0 ? (
+        <p className="text-sm text-muted">{t("Nothing logged.", "No hay registros.")}</p>
+      ) : (
+        <ul className="space-y-3">
+          {report.areaComparison.map((a) => (
+            <li key={a.name} className="rounded-xl border border-line p-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[16px] font-bold">{a.name === "Mixed" ? t("Mixed", "Mixto") : a.name}</span>
+                <span className="text-sm text-muted">
+                  {t("Real", "Real")} <b className="tabular-nums text-ink">{fmtMoney(a.realAll)}</b>
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg bg-red-50 px-2 py-1.5">
+                  <div className="text-xs text-bad">{t("Over", "Excedido")}</div>
+                  <Diff value={a.excess} />
+                  <div className="text-xs text-muted">{t(`${a.overCount} of ${a.count}`, `${a.overCount} de ${a.count}`)}</div>
+                </div>
+                <div className="rounded-lg bg-green-50 px-2 py-1.5">
+                  <div className="text-xs text-good">{t("Available", "Disponible")}</div>
+                  <Diff value={a.available} />
+                </div>
+              </div>
+              <div className="mt-2 space-y-0.5 text-xs text-muted">
+                <div className="flex justify-between">
+                  <span>{t("With allowance: real / allowance", "Con allowance: real / allowance")}</span>
+                  <span className="tabular-nums">
+                    {fmtMoney(a.real)} / {fmtMoney(a.allowance)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>{t("Without allowance (real)", "Sin allowance (real)")}</span>
+                  <span className="tabular-nums">{fmtMoney(a.noAllowanceReal)}</span>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 

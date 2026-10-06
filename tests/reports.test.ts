@@ -91,10 +91,43 @@ describe("report breakdowns", () => {
     expect(r.byProduct.map((p) => p.name)).toContain("Cookie");
   });
 
-  it("rows are sorted most-over first; totals use the same sign rule", () => {
+  it("rows are sorted most-over first", () => {
     const r = buildReport(input(rows));
     expect(r.comparison[0].diff).toBeLessThanOrEqual(r.comparison[1].diff);
-    expect(r.comparisonTotals.diff).toBeCloseTo(r.comparisonTotals.allowance - r.comparisonTotals.real, 9);
+  });
+
+  it("product view: individual allowances only; excess and available never net", () => {
+    // Filet over (44.44 − 50 = −5.56); give Cookie its own generous allowance so it is within.
+    const allowances = new Map([
+      [
+        "2026-10",
+        [
+          { kind: "INDIVIDUAL" as const, name: "Filet", amount: 200, productIds: [1] },
+          { kind: "INDIVIDUAL" as const, name: "Cookie", amount: 270, productIds: [4] },
+          { kind: "GROUP" as const, name: "Nuggets & Strips", amount: 270, productIds: [2, 3] },
+        ],
+      ],
+    ]);
+    const r = buildReport(input(rows, { allowances }));
+    expect(r.productComparison.map((c) => c.name).sort()).toEqual(["Cookie", "Filet"]);
+    expect(r.productTotals.excess).toBeCloseTo(-5.556, 3);
+    expect(r.productTotals.available).toBeCloseTo(60 - 3, 6); // 270/27×6 − 3
+    expect(r.productTotals.overCount).toBe(1);
+    expect(r.productTotals.net).toBeCloseTo(r.productTotals.excess + r.productTotals.available, 9);
+  });
+
+  it("products without any allowance are listed as real only", () => {
+    const r = buildReport(input(rows));
+    expect(r.withoutAllowance.map((p) => p.name)).toEqual(["Cookie"]);
+    expect(r.withoutAllowanceTotal).toBe(3);
+  });
+
+  it("area view covers everything logged in the area", () => {
+    const r = buildReport(input(rows));
+    const boh = r.areaComparison.find((a) => a.name === "BOH")!;
+    expect(boh.realAll).toBe(95); // 50 Filet + 42 group + 3 Cookie
+    expect(boh.noAllowanceReal).toBe(3);
+    expect(boh.excess).toBeLessThan(0);
   });
 
   it("type filter changes the real views, not the allowance comparison", () => {
@@ -151,7 +184,9 @@ describe("export", () => {
     expect(csv).toContain("Difference ($)");
     expect(csv).toMatch(/"Filet"|Filet,Product/);
     expect(csv).toContain(",-5.56,");
-    expect(csv).toMatch(/Nuggets & Strips,Group,.*,\+\d+\.\d\d,/);
+    expect(csv).not.toContain("Nuggets & Strips,Group"); // product view only
+    expect(csv).toMatch(/TOTAL OVER,.*,-5\.56,/);
+    expect(csv).toMatch(/TOTAL AVAILABLE,.*,\+0\.00,/);
 
     const buf = await toXlsx(report, [], "America/New_York", "test");
     const wb = new ExcelJS.Workbook();

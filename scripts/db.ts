@@ -5,12 +5,19 @@
  *   npm run db:seed -- --demo   …plus demo users and the catalog from referencias/inventory.xlsx
  *   npm run db:seed -- --import base config + products and users from referencias/inventory.xlsx (no demo data)
  *   npm run db:reset            delete the local PGlite data dir (dev only)
+ *   npm run test-env:setup      (re)create the local TEST database with demo data
  *   npm run supabase:setup      migrations + base config + products/users from inventory.xlsx on Supabase (.env.supabase)
  *   npm run supabase:migrate    apply new migrations on Supabase
  *
  * With local PGlite, stop `npm run dev` first: the data dir is single-process.
  */
 import { config } from "dotenv";
+import { TEST_PGLITE_DIR } from "./testEnvPaths";
+// --test: a separate local test database with demo data (never the real local DB or Supabase).
+if (process.argv.includes("--test")) {
+  process.env.PGLITE_DIR = TEST_PGLITE_DIR;
+  process.env.DATABASE_URL = "";
+}
 // --supabase: use the hosted database from .env.supabase (git-ignored) instead of the local one.
 if (process.argv.includes("--supabase")) config({ path: ".env.supabase", override: true, quiet: true });
 config({ path: [".env.local", ".env"], quiet: true });

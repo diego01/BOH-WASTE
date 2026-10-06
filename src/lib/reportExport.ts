@@ -32,7 +32,7 @@ export function comparisonTable(report: Report, lang: Lang = "en"): { header: st
       t("% used", "% usado"),
     ],
     rows: [
-      ...report.comparison.map((c) => [
+      ...report.productComparison.map((c) => [
         c.name,
         c.kind === "GROUP" ? t("Group", "Grupo") : t("Product", "Producto"),
         c.productNames.join("; "),
@@ -43,17 +43,21 @@ export function comparisonTable(report: Report, lang: Lang = "en"): { header: st
         c.diff,
         c.pctUsed === null ? null : Math.round(c.pctUsed * 10) / 10,
       ]),
+      // Excess and available are reported apart so savings never hide overages.
+      [t("TOTAL OVER", "TOTAL EXCEDIDO"), "", "", "", "", null, null, report.productTotals.excess, null],
+      [t("TOTAL AVAILABLE", "TOTAL DISPONIBLE"), "", "", "", "", null, null, report.productTotals.available, null],
       [
-        "TOTAL",
+        t("Net (reference)", "Neto (referencia)"),
         "",
         "",
         "",
         "",
-        r2(report.comparisonTotals.real),
-        r2(report.comparisonTotals.allowance),
-        report.comparisonTotals.diff,
-        report.comparisonTotals.pctUsed === null ? null : Math.round(report.comparisonTotals.pctUsed * 10) / 10,
+        r2(report.productTotals.real),
+        r2(report.productTotals.allowance),
+        report.productTotals.net,
+        report.productTotals.pctUsed === null ? null : Math.round(report.productTotals.pctUsed * 10) / 10,
       ],
+      ...report.withoutAllowance.map((p) => [p.name, t("No allowance", "Sin allowance"), p.name, p.area, "", r2(p.cost), null, null, null]),
     ],
   };
 }
@@ -70,7 +74,7 @@ export function dailyTable(report: Report, lang: Lang = "en"): { header: string[
       t("Difference ($)", "Diferencia ($)"),
       t("Cumulative difference ($)", "Diferencia acumulada ($)"),
     ],
-    rows: report.comparison.flatMap((c) =>
+    rows: report.productComparison.flatMap((c) =>
       c.days.map((d) => [c.name, d.date, d.operating ? t("Yes", "Sí") : "No", r2(d.real), r2(d.allowance), d.diff, d.cumulative]),
     ),
   };
@@ -199,9 +203,11 @@ export async function toXlsx(report: Report, entries: Entries, timezone: string,
   add(L.type.WASTE, r2(report.byType.WASTE), money);
   add(L.type.DONATION, r2(report.byType.DONATION), money);
   for (const d of DAYPARTS) add(L.daypart[d], r2(report.byDaypart[d]), money);
-  add(t("Allowance for period", "Allowance del periodo"), r2(report.comparisonTotals.allowance), money);
-  add(t("Real of products with allowance", "Real de productos con allowance"), r2(report.comparisonTotals.real), money);
-  add(t("Difference (allowance − real)", "Diferencia (allowance − real)"), report.comparisonTotals.diff, signedMoney);
+  add(t("Allowance for period (products)", "Allowance del periodo (productos)"), r2(report.productTotals.allowance), money);
+  add(t("Real of products with allowance", "Real de productos con allowance"), r2(report.productTotals.real), money);
+  add(t("Total over (products over allowance)", "Total excedido (productos pasados)"), report.productTotals.excess, signedMoney);
+  add(t("Total available (products within)", "Total disponible (productos dentro)"), report.productTotals.available, signedMoney);
+  add(t("Real without allowance", "Real sin allowance"), r2(report.withoutAllowanceTotal), money);
   if (report.mtd) {
     summary.addRow([]);
     add(t("Month allowance", "Allowance del mes"), r2(report.mtd.monthAllowance), money);

@@ -107,6 +107,22 @@ async function seedDemoMonth(db: DB, month: string, filetAmount: number, groupAm
     const [a] = await db.insert(schema.allowances).values({ month, kind: "INDIVIDUAL", name: filet.name, monthlyAmount: filetAmount }).returning();
     await db.insert(schema.allowanceProducts).values({ allowanceId: a.id, productId: filet.id, month });
   }
+  // A few more individual allowances (like a real store setup): some end up over, some within.
+  const extra: [string, number][] =
+    month === "2026-10"
+      ? [
+          ["3581", 120],
+          ["1241", 90],
+          ["28", 40],
+          ["72", 60],
+        ]
+      : [];
+  for (const [code, monthlyAmount] of extra) {
+    const p = await byCode(code);
+    if (!p) continue;
+    const [a] = await db.insert(schema.allowances).values({ month, kind: "INDIVIDUAL", name: p.name, monthlyAmount }).returning();
+    await db.insert(schema.allowanceProducts).values({ allowanceId: a.id, productId: p.id, month });
+  }
   const group = (await Promise.all(["70", "10681", "3201"].map(byCode))).filter((p) => !!p);
   if (group.length) {
     const [g] = await db.insert(schema.allowances).values({ month, kind: "GROUP", name: "Nuggets & Strips", monthlyAmount: groupAmount }).returning();

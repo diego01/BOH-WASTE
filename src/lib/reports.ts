@@ -62,11 +62,38 @@ export type ComparisonRow = {
   projection?: { real: number; monthAllowance: number; diff: number };
 };
 
-export type Totals = { real: number; allowance: number; diff: number; pctUsed: number | null };
+/**
+ * Totals that never let one product's savings hide another's overage:
+ * excess = sum of the negative differences only, available = sum of the
+ * positive ones. net is kept as secondary information.
+ */
+export type Summary = {
+  real: number;
+  allowance: number;
+  net: number;
+  excess: number;
+  available: number;
+  overCount: number;
+  count: number;
+  pctUsed: number | null;
+};
 
 const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
 const pct = (real: number, allowance: number) => (allowance > 0 ? (real / allowance) * 100 : null);
-const totals = (real: number, allowance: number): Totals => ({ real, allowance, diff: allowance - real, pctUsed: pct(real, allowance) });
+function summarize(rows: { real: number; allowance: number; diff: number }[]): Summary {
+  const real = sum(rows.map((r) => r.real));
+  const allowance = sum(rows.map((r) => r.allowance));
+  return {
+    real,
+    allowance,
+    net: allowance - real,
+    excess: sum(rows.map((r) => Math.min(r.diff, 0))),
+    available: sum(rows.map((r) => Math.max(r.diff, 0))),
+    overCount: rows.filter((r) => r.diff < -0.005).length,
+    count: rows.length,
+    pctUsed: pct(real, allowance),
+  };
+}
 
 function allowanceKey(a: MonthAllowanceDef): string {
   return a.kind === "INDIVIDUAL" ? `P${a.productIds[0]}` : `G${a.name.trim().toLowerCase()}`;
@@ -220,14 +247,36 @@ export function buildReport(input: ReportInput) {
   // Most over-allowance first.
   comparison.sort((x, y) => x.diff - y.diff);
 
-  const rollup = (key: (r: ComparisonRow) => string) => {
-    const m = new Map<string, { real: number; allowance: number }>();
-    for (const r of comparison) {
-      const t = m.get(key(r)) ?? { real: 0, allowance: 0 };
-      m.set(key(r), { real: t.real + r.real, allowance: t.allowance + r.allowance });
-    }
-    return [...m.entries()].map(([name, t]) => ({ name, ...totals(t.real, t.allowance) })).sort((a, b) => a.diff - b.diff);
-  };
+  // "Product" view: one row per product with its own allowance (groups would mix items).
+  const productComparison = comparison.filter((c) => c.kind === "INDIVIDUAL");
+
+  // Products logged in the period that have no allowance: real only, so nothing drops out of the analysis.
+  const covered = new Set<number>();
+  for (const month of months) for (const def of input.allowances.get(month) ?? []) def.productIds.forEach((id) => covered.add(id));
+  const noAllowance = new Map<number, { qty: number; cost: number }>();
+  for (const r of scoped) {
+    if (covered.has(r.productId)) continue;
+    const t = noAllowance.get(r.productId) ?? { qty: 0, cost: 0 };
+    noAllowance.set(r.productId, { qty: t.qty + r.quantity, cost: t.cost + r.cost });
+  }
+  const withoutAllowance = [...noAllowance.entries()]
+    .map(([id, t]) => {
+      const m = meta.get(id);
+      return { productId: id, name: m?.name ?? `#${id}`, unit: m?.unit ?? ("EACH" as Unit), area: m?.areaName ?? "—", qty: t.qty, cost: t.cost };
+    })
+    .filter((p) => Math.abs(p.cost) > 1e-9 || Math.abs(p.qty) > 1e-9)
+    .sort((a, b) => b.cost - a.cost);
+
+  // "Area" view: everything logged in the area, plus excess/available of its allowances (never netted).
+  const areaNames = new Set<string>([...comparison.map((c) => c.area), ...scoped.map((r) => meta.get(r.productId)?.areaName ?? "—")]);
+  const areaComparison = [...areaNames]
+    .map((name) => {
+      const rows = comparison.filter((c) => c.area === name);
+      const realAll = sum(scoped.filter((r) => (meta.get(r.productId)?.areaName ?? "—") === name).map((r) => r.cost));
+      const noAllowanceReal = sum(withoutAllowance.filter((p) => p.area === name).map((p) => p.cost));
+      return { name, realAll, noAllowanceReal, ...summarize(rows) };
+    })
+    .sort((a, b) => a.excess - b.excess);
 
   // Daily series for the chart: real (filtered) and the total allowance of the day.
   const allowanceByDate = new Map<string, number>();
@@ -277,9 +326,11 @@ export function buildReport(input: ReportInput) {
     byReason,
     daily,
     comparison,
-    comparisonTotals: totals(sum(comparison.map((r) => r.real)), sum(comparison.map((r) => r.allowance))),
-    comparisonByArea: rollup((r) => r.area),
-    comparisonByCategory: rollup((r) => r.category),
+    productComparison,
+    productTotals: summarize(productComparison),
+    withoutAllowance,
+    withoutAllowanceTotal: sum(withoutAllowance.map((p) => p.cost)),
+    areaComparison,
     mtd,
   };
 }
